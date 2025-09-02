@@ -81,6 +81,9 @@
     <div id="historyList"></div>
   </div>
 
+  <!-- Canvas oculto para análisis -->
+  <canvas id="hiddenCanvas" style="display:none;"></canvas>
+
   <script>
     const URL = "./my_model/";
     let model, maxPredictions;
@@ -101,6 +104,8 @@
     const confidenceFill = document.getElementById("confidenceFill");
     const historyList = document.getElementById("historyList");
     const scanLine = document.getElementById("scanLine");
+    const hiddenCanvas = document.getElementById("hiddenCanvas");
+    const ctx = hiddenCanvas.getContext("2d");
 
     cameraInput.addEventListener("change", async (event) => {
       const file = event.target.files[0];
@@ -115,7 +120,13 @@
 
             await new Promise(r => setTimeout(r, 1200));
 
-            const prediction = await model.predict(photo);
+            // dibujar en canvas oculto
+            hiddenCanvas.width = photo.naturalWidth;
+            hiddenCanvas.height = photo.naturalHeight;
+            ctx.drawImage(photo, 0, 0);
+
+            // usar el canvas para predecir
+            const prediction = await model.predict(hiddenCanvas);
             prediction.sort((a, b) => b.probability - a.probability);
             const best = prediction[0];
 
@@ -152,5 +163,3 @@
   </script>
 </body>
 </html>
-
-
