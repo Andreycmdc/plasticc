@@ -1,229 +1,207 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Clasificador 4D</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Plastic Scanner Pro</title>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest"></script>
   <style>
     body {
-      margin: 0;
-      font-family: 'Segoe UI', sans-serif;
+      font-family: "Segoe UI", Tahoma, sans-serif;
       background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
       color: #fff;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+      text-align: center;
+      margin: 0;
       padding: 20px;
-      transition: background 0.5s, color 0.5s;
-    }
-    body.light {
-      background: #f5f5f5;
-      color: #222;
     }
     h1 {
-      margin: 10px 0;
+      font-size: 2rem;
+      margin-bottom: 10px;
     }
-    #scanner {
-      width: 300px;
-      height: 220px;
-      border: 3px solid #4cafef;
+    #preview {
+      width: 260px;
+      height: 260px;
+      border: 3px solid #0ff;
       border-radius: 12px;
-      margin: 15px 0;
+      margin: 20px auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 255, 255, 0.05);
+      box-shadow: 0 0 25px rgba(0, 255, 255, 0.3);
       position: relative;
       overflow: hidden;
-      display: none;
     }
-    #scanner::before {
-      content: "";
-      position: absolute;
-      top: -100%;
-      left: 0;
+    #preview img {
       width: 100%;
       height: 100%;
-      background: rgba(76, 175, 239, 0.2);
+      object-fit: cover;
+      border-radius: 12px;
+    }
+    .scan-line {
+      position: absolute;
+      width: 100%;
+      height: 4px;
+      background: rgba(0, 255, 255, 0.8);
       animation: scan 2s linear infinite;
+      display: none; /* solo se muestra mientras analiza */
     }
     @keyframes scan {
-      0% { top: -100%; }
+      0% { top: 0; }
       100% { top: 100%; }
     }
-    #imagePreview {
-      width: 300px;
-      max-height: 220px;
-      border-radius: 12px;
-      object-fit: cover;
-      display: none;
-    }
-    .btn {
-      background: #4cafef;
-      border: none;
-      padding: 12px 20px;
-      margin: 8px;
-      border-radius: 8px;
-      color: white;
+    #result {
+      margin-top: 20px;
+      font-size: 1.4rem;
       font-weight: bold;
+      color: #0ff;
+    }
+    #confidenceBar {
+      width: 80%;
+      height: 20px;
+      margin: 10px auto;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 0 10px rgba(0,255,255,0.4);
+    }
+    #confidenceFill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #0ff, #00c3ff);
+      transition: width 0.5s ease;
+    }
+    button {
+      background: #0ff;
+      border: none;
+      color: #000;
+      font-size: 1rem;
+      padding: 10px 18px;
+      margin: 10px 5px;
+      border-radius: 8px;
       cursor: pointer;
       transition: 0.3s;
     }
-    .btn:hover {
-      background: #1976d2;
-    }
-    #result {
-      font-size: 1.2em;
-      margin: 15px;
-      text-align: center;
-    }
-    .confidence-bar {
-      width: 80%;
-      height: 10px;
-      background: #444;
-      border-radius: 5px;
-      margin: 8px auto;
-      overflow: hidden;
-    }
-    .confidence-fill {
-      height: 100%;
-      width: 0%;
-      background: #4cafef;
-      transition: width 0.5s;
+    button:hover {
+      background: #06c4c4;
     }
     #history {
-      width: 90%;
-      margin-top: 20px;
-    }
-    #history h2 {
-      font-size: 1.1em;
-      margin-bottom: 10px;
+      margin-top: 30px;
+      text-align: left;
+      max-width: 400px;
+      margin-left: auto;
+      margin-right: auto;
     }
     .history-item {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 8px;
+      margin-bottom: 8px;
       display: flex;
       align-items: center;
-      background: rgba(255,255,255,0.1);
-      padding: 8px;
-      border-radius: 8px;
-      margin: 5px 0;
+      gap: 10px;
     }
     .history-item img {
       width: 50px;
       height: 50px;
-      border-radius: 6px;
-      margin-right: 10px;
       object-fit: cover;
-    }
-    #toggleMode {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      background: #ff9800;
+      border-radius: 6px;
     }
   </style>
 </head>
 <body>
-  <button id="toggleMode" class="btn">🌙 Modo</button>
-  <h1>Clasificador 4D</h1>
+  <h1>Plastic Scanner Pro</h1>
+  <p>Captura una foto para identificar el tipo de plástico</p>
 
-  <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none">
-  <video id="camera" autoplay playsinline style="display:none; width:300px; border-radius:12px;"></video>
-  <div id="scanner"></div>
-  <img id="imagePreview">
-
-  <div>
-    <button class="btn" onclick="openCamera()">📸 Tomar Foto</button>
-    <button class="btn" onclick="switchCamera()">🔄 Cambiar Cámara</button>
+  <div id="preview">
+    <div class="scan-line" id="scanLine"></div>
+    <img id="photo" src="" alt="Preview" />
   </div>
 
-  <div id="result">Cargando modelo...</div>
-  <div class="confidence-bar"><div id="confidenceFill" class="confidence-fill"></div></div>
+  <input type="file" accept="image/*" capture="environment" id="cameraInput" style="display:none">
+  <button onclick="document.getElementById('cameraInput').click()">📷 Tomar Foto</button>
+  <button onclick="shareResult()">📤 Compartir</button>
 
-  <button class="btn" onclick="shareResult()">📤 Compartir Resultado</button>
+  <div id="result">Esperando foto...</div>
+  <div id="confidenceBar"><div id="confidenceFill"></div></div>
 
   <div id="history">
-    <h2>Historial</h2>
+    <h3>📑 Historial</h3>
     <div id="historyList"></div>
   </div>
 
-  <audio id="beep" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"></audio>
-
   <script>
-    let model;
-    let currentStream = null;
-    let useFront = false;
+    const URL = "./my_model/"; // carpeta donde exportaste tu modelo
+    let model, maxPredictions;
+    let lastResult = "";
 
     async function loadModel() {
-      model = await tf.loadLayersModel("my_model/model.json");
-      document.getElementById("result").innerText = "Modelo cargado. Listo para clasificar.";
+      const modelURL = URL + "model.json";
+      const metadataURL = URL + "metadata.json";
+      model = await tmImage.load(modelURL, metadataURL);
+      maxPredictions = model.getTotalClasses();
+      document.getElementById("result").innerText = "Modelo cargado. Listo para analizar.";
     }
+
     loadModel();
 
-    function openCamera() {
-      document.getElementById('fileInput').click();
-    }
+    const cameraInput = document.getElementById("cameraInput");
+    const photo = document.getElementById("photo");
+    const result = document.getElementById("result");
+    const confidenceFill = document.getElementById("confidenceFill");
+    const historyList = document.getElementById("historyList");
+    const scanLine = document.getElementById("scanLine");
 
-    function switchCamera() {
-      useFront = !useFront;
-      alert("Ahora usarás la cámara " + (useFront ? "frontal" : "trasera") + " al capturar.");
-    }
-
-    document.getElementById("fileInput").addEventListener("change", async function(event) {
+    cameraInput.addEventListener("change", async (event) => {
       const file = event.target.files[0];
-      if (!file) return;
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+          photo.src = e.target.result;
 
-      const img = document.getElementById("imagePreview");
-      img.src = URL.createObjectURL(file);
-      img.style.display = "block";
+          photo.onload = async () => {
+            scanLine.style.display = "block"; // mostrar línea de escaneo
+            result.innerText = "Escaneando...";
 
-      document.getElementById("scanner").style.display = "block";
-      document.getElementById("result").innerText = "Escaneando...";
-      classifyImage(img);
+            // esperar un momento para mostrar el efecto
+            await new Promise(r => setTimeout(r, 1200));
+
+            const prediction = await model.predict(photo);
+            prediction.sort((a, b) => b.probability - a.probability);
+            const best = prediction[0];
+            lastResult = ${best.className} (${(best.probability * 100).toFixed(1)}%);
+
+            result.innerHTML = 🔍 Detectado: <span style="color:#fff">${best.className}</span>;
+            confidenceFill.style.width = (best.probability * 100).toFixed(1) + "%";
+
+            scanLine.style.display = "none"; // ocultar después del análisis
+
+            // vibración + sonido
+            if (navigator.vibrate) navigator.vibrate(300);
+            new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg").play();
+
+            // historial
+            const item = document.createElement("div");
+            item.classList.add("history-item");
+            item.innerHTML = <img src="${e.target.result}"><span>${lastResult}</span>;
+            historyList.prepend(item);
+          };
+        };
+        reader.readAsDataURL(file);
+      }
     });
 
-    async function classifyImage(img) {
-      await new Promise(r => setTimeout(r, 1500)); // simula escaneo
-      const tensor = tf.browser.fromPixels(img)
-        .resizeNearestNeighbor([224,224])
-        .toFloat()
-        .expandDims();
-
-      const prediction = await model.predict(tensor).data();
-      const maxIdx = prediction.indexOf(Math.max(...prediction));
-      const confidence = (prediction[maxIdx] * 100).toFixed(2);
-
-      const labels = ["Plástico", "Vidrio", "Metal", "Papel"];
-      document.getElementById("result").innerText = 
-        Resultado: ${labels[maxIdx]} (${confidence}%);
-      document.getElementById("confidenceFill").style.width = confidence + "%";
-
-      // efectos pro
-      document.getElementById("scanner").style.display = "none";
-      navigator.vibrate(200);
-      document.getElementById("beep").play();
-
-      addToHistory(img.src, labels[maxIdx], confidence);
-    }
-
-    function addToHistory(src, label, conf) {
-      const div = document.createElement("div");
-      div.className = "history-item";
-      div.innerHTML = <img src="${src}"><span>${label} (${conf}%)</span>;
-      document.getElementById("historyList").prepend(div);
-    }
-
     function shareResult() {
-      const resultText = document.getElementById("result").innerText;
-      if (navigator.share) {
+      if (navigator.share && lastResult) {
         navigator.share({
-          title: "Resultado Clasificador",
-          text: resultText
+          title: "Plastic Scanner Pro",
+          text: "Resultado del análisis: " + lastResult
         });
       } else {
         alert("Compartir no soportado en este dispositivo.");
       }
     }
-
-    // Toggle dark/light mode
-    document.getElementById("toggleMode").addEventListener("click", () => {
-      document.body.classList.toggle("light");
-    });
   </script>
 </body>
 </html>
