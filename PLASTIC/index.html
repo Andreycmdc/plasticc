@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
@@ -15,99 +15,49 @@
       margin: 0;
       padding: 20px;
     }
-    h1 {
-      font-size: 2rem;
-      margin-bottom: 10px;
-    }
+    h1 { font-size: 2rem; margin-bottom: 10px; }
     #preview {
-      width: 260px;
-      height: 260px;
-      border: 3px solid #0ff;
-      border-radius: 12px;
+      width: 260px; height: 260px;
+      border: 3px solid #0ff; border-radius: 12px;
       margin: 20px auto;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; align-items: center; justify-content: center;
       background: rgba(0, 255, 255, 0.05);
       box-shadow: 0 0 25px rgba(0, 255, 255, 0.3);
-      position: relative;
-      overflow: hidden;
+      position: relative; overflow: hidden;
     }
-    #preview img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      border-radius: 12px;
-    }
+    #preview img { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; }
     .scan-line {
-      position: absolute;
-      width: 100%;
-      height: 4px;
+      position: absolute; width: 100%; height: 4px;
       background: rgba(0, 255, 255, 0.8);
       animation: scan 2s linear infinite;
-      display: none; /* solo se muestra mientras analiza */
+      display: none;
     }
-    @keyframes scan {
-      0% { top: 0; }
-      100% { top: 100%; }
-    }
-    #result {
-      margin-top: 20px;
-      font-size: 1.4rem;
-      font-weight: bold;
-      color: #0ff;
-    }
+    @keyframes scan { 0% { top: 0; } 100% { top: 100%; } }
+    #result { margin-top: 20px; font-size: 1.4rem; font-weight: bold; color: #0ff; }
     #confidenceBar {
-      width: 80%;
-      height: 20px;
-      margin: 10px auto;
+      width: 80%; height: 20px; margin: 10px auto;
       background: rgba(255, 255, 255, 0.2);
-      border-radius: 10px;
-      overflow: hidden;
+      border-radius: 10px; overflow: hidden;
       box-shadow: 0 0 10px rgba(0,255,255,0.4);
     }
     #confidenceFill {
-      height: 100%;
-      width: 0%;
+      height: 100%; width: 0%;
       background: linear-gradient(90deg, #0ff, #00c3ff);
       transition: width 0.5s ease;
     }
     button {
-      background: #0ff;
-      border: none;
-      color: #000;
-      font-size: 1rem;
-      padding: 10px 18px;
-      margin: 10px 5px;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: 0.3s;
+      background: #0ff; border: none; color: #000;
+      font-size: 1rem; padding: 10px 18px; margin: 10px 5px;
+      border-radius: 8px; cursor: pointer; transition: 0.3s;
     }
-    button:hover {
-      background: #06c4c4;
-    }
-    #history {
-      margin-top: 30px;
-      text-align: left;
-      max-width: 400px;
-      margin-left: auto;
-      margin-right: auto;
-    }
+    button:hover { background: #06c4c4; }
+    #history { margin-top: 30px; text-align: left; max-width: 400px; margin-left: auto; margin-right: auto; }
     .history-item {
       background: rgba(255, 255, 255, 0.1);
-      border-radius: 8px;
-      padding: 8px;
-      margin-bottom: 8px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
+      border-radius: 8px; padding: 8px; margin-bottom: 8px;
+      display: flex; align-items: center; gap: 10px;
     }
-    .history-item img {
-      width: 50px;
-      height: 50px;
-      object-fit: cover;
-      border-radius: 6px;
-    }
+    .history-item img { width: 50px; height: 50px; object-fit: cover; border-radius: 6px; }
   </style>
 </head>
 <body>
@@ -132,7 +82,7 @@
   </div>
 
   <script>
-    const URL = "./my_model/"; // carpeta donde exportaste tu modelo
+    const URL = "./my_model/";
     let model, maxPredictions;
     let lastResult = "";
 
@@ -143,7 +93,6 @@
       maxPredictions = model.getTotalClasses();
       document.getElementById("result").innerText = "Modelo cargado. Listo para analizar.";
     }
-
     loadModel();
 
     const cameraInput = document.getElementById("cameraInput");
@@ -157,34 +106,32 @@
       const file = event.target.files[0];
       if (file) {
         const reader = new FileReader();
-        reader.onload = async function(e) {
+        reader.onload = function(e) {
           photo.src = e.target.result;
 
           photo.onload = async () => {
-            scanLine.style.display = "block"; // mostrar línea de escaneo
+            scanLine.style.display = "block";
             result.innerText = "Escaneando...";
 
-            // esperar un momento para mostrar el efecto
             await new Promise(r => setTimeout(r, 1200));
 
             const prediction = await model.predict(photo);
             prediction.sort((a, b) => b.probability - a.probability);
             const best = prediction[0];
-            lastResult = ${best.className} (${(best.probability * 100).toFixed(1)}%);
 
-            result.innerHTML = 🔍 Detectado: <span style="color:#fff">${best.className}</span>;
+            lastResult = `${best.className} (${(best.probability * 100).toFixed(1)}%)`;
+
+            result.innerHTML = `🔍 Detectado: <span style="color:#fff">${best.className}</span>`;
             confidenceFill.style.width = (best.probability * 100).toFixed(1) + "%";
 
-            scanLine.style.display = "none"; // ocultar después del análisis
+            scanLine.style.display = "none";
 
-            // vibración + sonido
             if (navigator.vibrate) navigator.vibrate(300);
             new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg").play();
 
-            // historial
             const item = document.createElement("div");
             item.classList.add("history-item");
-            item.innerHTML = <img src="${e.target.result}"><span>${lastResult}</span>;
+            item.innerHTML = `<img src="${e.target.result}"><span>${lastResult}</span>`;
             historyList.prepend(item);
           };
         };
@@ -205,3 +152,5 @@
   </script>
 </body>
 </html>
+
+
