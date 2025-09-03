@@ -84,7 +84,7 @@
   <canvas id="hiddenCanvas" style="display:none;"></canvas>
 
   <script>
-    const URL = "./my_model/"; // Correcto para plastic/my_model
+    const URL = "./my_model/"; // Ajusta según la ubicación de tu carpeta my_model
     let model, maxPredictions, lastResult="";
 
     const cameraInput = document.getElementById("cameraInput");
@@ -111,19 +111,20 @@
 
     cameraInput.addEventListener("change", async (event) => {
       const file = event.target.files[0];
-      if (!file) return;
+      if(!file) return;
 
       const reader = new FileReader();
-      reader.onload = function(e) { photo.src = e.target.result; };
+      reader.onload = function(e){ photo.src = e.target.result; };
       reader.readAsDataURL(file);
 
       photo.onload = async () => {
-        if (!model) { alert("Modelo aún no cargado."); return; }
+        if(!model){ alert("Modelo aún no cargado."); return; }
 
         scanLine.style.display = "block";
         result.innerText = "Escaneando...";
 
-        const MODEL_SIZE = model.getInputShape()[1];
+        // Tamaño fijo compatible con Teachable Machine
+        const MODEL_SIZE = 224;
         hiddenCanvas.width = MODEL_SIZE;
         hiddenCanvas.height = MODEL_SIZE;
         ctx.clearRect(0,0,MODEL_SIZE,MODEL_SIZE);
@@ -143,7 +144,7 @@
           item.innerHTML = `<img src="${photo.src}"><span>${lastResult}</span>`;
           historyList.prepend(item);
 
-        } catch(err) {
+        } catch(err){
           console.error("Error prediciendo:", err);
           result.innerText = "Error al predecir. Intenta otra vez.";
         } finally {
