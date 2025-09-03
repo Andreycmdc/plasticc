@@ -84,7 +84,7 @@
   <canvas id="hiddenCanvas" style="display:none;"></canvas>
 
   <script>
-    const URL = "./my_model/"; // modelo en la raíz
+    const URL = "./my_model/"; // carpeta en la raíz
     let model, maxPredictions, lastResult="";
 
     const cameraInput = document.getElementById("cameraInput");
@@ -104,7 +104,7 @@
         result.innerText = "Modelo cargado. Listo para analizar.";
       } catch(err) {
         console.error("Error cargando modelo:", err);
-        result.innerText = "Error cargando modelo. Verifica rutas y archivos.";
+        result.innerText = "Error cargando modelo. Revisa consola y rutas.";
       }
     }
     loadModel();
@@ -123,6 +123,7 @@
         scanLine.style.display = "block";
         result.innerText = "Escaneando...";
 
+        // Ajustar canvas al tamaño que espera el modelo
         const MODEL_SIZE = model.getInputShape()[1];
         hiddenCanvas.width = MODEL_SIZE;
         hiddenCanvas.height = MODEL_SIZE;
@@ -131,7 +132,7 @@
 
         try {
           const prediction = await model.predict(hiddenCanvas);
-          prediction.sort((a,b)=>b.probability-a.probability);
+          prediction.sort((a,b)=>b.probability - a.probability);
           const best = prediction[0];
 
           lastResult = `${best.className} (${(best.probability*100).toFixed(1)}%)`;
