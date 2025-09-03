@@ -1,140 +1,65 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <title>Detector de Plástico</title>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.9.0"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #0f172a;
-      color: #f1f5f9;
-      text-align: center;
-      padding: 20px;
-    }
-    h1 {
-      margin-bottom: 20px;
-      color: #38bdf8;
-    }
-    input {
-      margin: 20px 0;
-      padding: 10px;
-      border-radius: 8px;
-      border: none;
-      background: #1e293b;
-      color: #f1f5f9;
-    }
-    #preview {
-      width: 300px;
-      margin: 20px auto;
-      border: 3px solid #38bdf8;
-      border-radius: 10px;
-      position: relative;
-    }
-    /* Animación de escaneo */
-    #scanner {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      border-radius: 10px;
-      background: linear-gradient(to bottom, rgba(56,189,248,0.3), rgba(56,189,248,0));
-      animation: scan 2s linear infinite;
-      display: none;
-    }
-    @keyframes scan {
-      0% { transform: translateY(-100%); }
-      100% { transform: translateY(100%); }
-    }
-    /* Loader */
-    #loader {
-      margin-top: 20px;
-      display: none;
-    }
-    .spinner {
-      border: 6px solid #1e293b;
-      border-top: 6px solid #38bdf8;
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
-      animation: spin 1s linear infinite;
-      margin: auto;
-    }
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    /* Resultado */
-    #result {
-      margin-top: 20px;
-      font-size: 20px;
-      font-weight: bold;
-      color: #38bdf8;
-      display: none;
-    }
-  </style>
-</head>
-<body>
-  <h1>🔍 Detector de Plástico</h1>
+<div>Teachable Machine Image Model</div>
+<button type="button" onclick="init()">Abrir Cámara</button>
+<button type="button" onclick="switchCamera()">Cambiar Cámara</button>
+<video id="webcam" autoplay playsinline width="300" height="300"></video>
+<div id="label-container"></div>
 
-  <!-- Botón cámara -->
-  <input type="file" accept="image/*" capture="environment" id="cameraInput">
-
-  <div style="position:relative; display:inline-block;">
-    <img id="preview" style="display:none;">
-    <div id="scanner"></div>
-  </div>
-
-  <div id="loader"><div class="spinner"></div></div>
-  <div id="result"></div>
-
-  <script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest"></script>
+<script>
     const URL = "./my_model/";
-    let model, maxPredictions;
+    let model, labelContainer, maxPredictions;
+    let currentStream = null;
+    let currentFacingMode = "environment"; // inicia con la trasera
+    const video = document.getElementById("webcam");
 
     async function init() {
-      const modelURL = URL + "model.json";
-      const metadataURL = URL + "metadata.json";
-      model = await tmImage.load(modelURL, metadataURL);
-      maxPredictions = model.getTotalClasses();
+        const modelURL = URL + "model.json";
+        const metadataURL = URL + "metadata.json";
+        model = await tmImage.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
+
+        labelContainer = document.getElementById("label-container");
+        for (let i = 0; i < maxPredictions; i++) {
+            labelContainer.appendChild(document.createElement("div"));
+        }
+
+        startCamera();
     }
 
-    init();
+    async function startCamera() {
+        if (currentStream) {
+            currentStream.getTracks().forEach(track => track.stop());
+        }
+        const constraints = {
+            audio: false,
+            video: {
+                facingMode: currentFacingMode
+            }
+        };
+        currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = currentStream;
+        predictLoop();
+    }
 
-    document.getElementById("cameraInput").addEventListener("change", async function(event) {
-      const file = event.target.files[0];
-      if (!file) return;
+    async function switchCamera() {
+        currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
+        await startCamera();
+    }
 
-      const img = document.getElementById("preview");
-      const scanner = document.getElementById("scanner");
-      const loader = document.getElementById("loader");
-      const result = document.getElementById("result");
+    async function predictLoop() {
+        if (!model) return;
+        setInterval(async () => {
+            const prediction = await model.predict(video);
+            for (let i = 0; i < maxPredictions; i++) {
+                const classPrediction =
+                    prediction[i].className + ": " +
+                    prediction[i].probability.toFixed(2);
+                labelContainer.childNodes[i].innerHTML = classPrediction;
+            }
+        }, 500);
+    }
+</script>
 
-      img.src = URL.createObjectURL(file);
-      img.style.display = "block";
-      scanner.style.display = "block";
-      loader.style.display = "block";
-      result.style.display = "none";
 
-      img.onload = async () => {
-        const prediction = await model.predict(img);
-
-        // Buscar la clase más probable
-        let best = prediction.reduce((a, b) => a.probability > b.probability ? a : b);
-
-        // Simular tiempo de "escaneo"
-        setTimeout(() => {
-          scanner.style.display = "none";
-          loader.style.display = "none";
-          result.style.display = "block";
-          result.innerHTML = `✅ Esto es: <span style="color:#facc15">${best.className}</span> 
-                              <br> Confianza: ${(best.probability * 100).toFixed(2)}%`;
-        }, 2000);
-      };
-    });
-  </script>
-</body>
-</html>
 
