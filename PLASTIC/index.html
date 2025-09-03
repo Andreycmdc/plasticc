@@ -7,19 +7,56 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest"></script>
   <style>
-    body { font-family: "Segoe UI", Tahoma, sans-serif; background: linear-gradient(135deg,#0f2027,#203a43,#2c5364); color:#fff; text-align:center; margin:0; padding:20px; }
+    body {
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+      color:#fff;
+      text-align:center;
+      margin:0;
+      padding:20px;
+    }
     h1 { font-size:2rem; margin-bottom:10px; }
-    #preview { width:260px; height:260px; border:3px solid #0ff; border-radius:12px; margin:20px auto; display:flex; align-items:center; justify-content:center; background: rgba(0,255,255,0.05); box-shadow:0 0 25px rgba(0,255,255,0.3); position:relative; overflow:hidden; }
+    #preview {
+      width:260px; height:260px;
+      border:3px solid #0ff;
+      border-radius:12px;
+      margin:20px auto;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background: rgba(0,255,255,0.05);
+      box-shadow:0 0 25px rgba(0,255,255,0.3);
+      position:relative;
+      overflow:hidden;
+    }
     #preview img { width:100%; height:100%; object-fit:cover; border-radius:12px; }
-    .scan-line { position:absolute; width:100%; height:4px; background: rgba(0,255,255,0.8); animation:scan 2s linear infinite; display:none; }
+    .scan-line {
+      position:absolute;
+      width:100%; height:4px;
+      background: rgba(0,255,255,0.8);
+      animation:scan 2s linear infinite;
+      display:none;
+    }
     @keyframes scan {0%{top:0;}100%{top:100%;}}
     #result { margin-top:20px; font-size:1.4rem; font-weight:bold; color:#0ff; }
     #confidenceBar { width:80%; height:20px; margin:10px auto; background: rgba(255,255,255,0.2); border-radius:10px; overflow:hidden; box-shadow:0 0 10px rgba(0,255,255,0.4); }
     #confidenceFill { height:100%; width:0%; background: linear-gradient(90deg,#0ff,#00c3ff); transition: width 0.5s ease; }
-    button { background:#0ff; border:none; color:#000; font-size:1rem; padding:10px 18px; margin:10px 5px; border-radius:8px; cursor:pointer; transition:0.3s; }
+    button {
+      background:#0ff; border:none; color:#000;
+      font-size:1rem; padding:10px 18px; margin:10px 5px;
+      border-radius:8px; cursor:pointer; transition:0.3s;
+    }
     button:hover { background:#06c4c4; }
     #history { margin-top:30px; text-align:left; max-width:400px; margin-left:auto; margin-right:auto; }
-    .history-item { background: rgba(255,255,255,0.1); border-radius:8px; padding:8px; margin-bottom:8px; display:flex; align-items:center; gap:10px; }
+    .history-item {
+      background: rgba(255,255,255,0.1);
+      border-radius:8px;
+      padding:8px;
+      margin-bottom:8px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
     .history-item img { width:50px; height:50px; object-fit:cover; border-radius:6px; }
   </style>
 </head>
@@ -47,8 +84,7 @@
   <canvas id="hiddenCanvas" style="display:none;"></canvas>
 
   <script>
-    // Ruta al modelo dentro de plastic/
-    const URL = "./my_model/";
+    const URL = "./my_model/"; // Correcto para plastic/my_model
     let model, maxPredictions, lastResult="";
 
     const cameraInput = document.getElementById("cameraInput");
@@ -60,7 +96,6 @@
     const hiddenCanvas = document.getElementById("hiddenCanvas");
     const ctx = hiddenCanvas.getContext("2d");
 
-    // Cargar modelo
     async function loadModel() {
       try {
         result.innerText = "Cargando modelo...";
@@ -79,22 +114,16 @@
       if (!file) return;
 
       const reader = new FileReader();
-      reader.onload = function(e) {
-        photo.src = e.target.result;
-      };
+      reader.onload = function(e) { photo.src = e.target.result; };
       reader.readAsDataURL(file);
 
       photo.onload = async () => {
-        if (!model) {
-          alert("Modelo aún no cargado.");
-          return;
-        }
+        if (!model) { alert("Modelo aún no cargado."); return; }
 
         scanLine.style.display = "block";
         result.innerText = "Escaneando...";
 
-        // Ajustar canvas al tamaño que espera el modelo
-        const MODEL_SIZE = model.getInputShape()[1]; 
+        const MODEL_SIZE = model.getInputShape()[1];
         hiddenCanvas.width = MODEL_SIZE;
         hiddenCanvas.height = MODEL_SIZE;
         ctx.clearRect(0,0,MODEL_SIZE,MODEL_SIZE);
@@ -106,11 +135,9 @@
           const best = prediction[0];
 
           lastResult = `${best.className} (${(best.probability*100).toFixed(1)}%)`;
-
           result.innerHTML = `🔍 Detectado: <span style="color:#fff">${best.className}</span>`;
           confidenceFill.style.width = (best.probability*100).toFixed(1) + "%";
 
-          // Guardar historial
           const item = document.createElement("div");
           item.classList.add("history-item");
           item.innerHTML = `<img src="${photo.src}"><span>${lastResult}</span>`;
@@ -137,4 +164,3 @@
   </script>
 </body>
 </html>
-
