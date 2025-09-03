@@ -50,20 +50,6 @@
     const URL = "./my_model/";
     let model, maxPredictions, lastResult = "";
 
-    async function loadModel() {
-      try {
-        const modelURL = URL + "model.json";
-        const metadataURL = URL + "metadata.json";
-        model = await tmImage.load(modelURL, metadataURL);
-        maxPredictions = model.getTotalClasses();
-        document.getElementById("result").innerText = "Modelo cargado. Listo para analizar.";
-      } catch (err) {
-        console.error("Error cargando modelo:", err);
-        document.getElementById("result").innerText = "Error cargando modelo.";
-      }
-    }
-    loadModel();
-
     const cameraInput = document.getElementById("cameraInput");
     const photo = document.getElementById("photo");
     const result = document.getElementById("result");
@@ -73,6 +59,21 @@
     const hiddenCanvas = document.getElementById("hiddenCanvas");
     const ctx = hiddenCanvas.getContext("2d");
 
+    // Cargar el modelo
+    async function loadModel() {
+      try {
+        result.innerText = "Cargando modelo...";
+        model = await tmImage.load(URL + "model.json", URL + "metadata.json");
+        maxPredictions = model.getTotalClasses();
+        result.innerText = "Modelo cargado. Listo para analizar.";
+      } catch(err) {
+        console.error("Error cargando modelo:", err);
+        result.innerText = "Error cargando modelo. Verifica rutas y archivos.";
+      }
+    }
+    loadModel();
+
+    // Manejo del input de la cámara
     cameraInput.addEventListener("change", async (event) => {
       const file = event.target.files[0];
       if (!file) return;
@@ -92,17 +93,15 @@
         scanLine.style.display = "block";
         result.innerText = "Escaneando...";
 
-        // Ajustar canvas
-        const MODEL_SIZE = model.getInputShape()[1]; // tamaño esperado por el modelo
+        // Ajustar canvas al tamaño que espera el modelo
+        const MODEL_SIZE = model.getInputShape()[1]; 
         hiddenCanvas.width = MODEL_SIZE;
         hiddenCanvas.height = MODEL_SIZE;
-
-        ctx.clearRect(0, 0, hiddenCanvas.width, hiddenCanvas.height);
-        ctx.drawImage(photo, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
+        ctx.clearRect(0,0,MODEL_SIZE,MODEL_SIZE);
+        ctx.drawImage(photo,0,0,MODEL_SIZE,MODEL_SIZE);
 
         try {
           const prediction = await model.predict(hiddenCanvas);
-
           prediction.sort((a,b)=>b.probability - a.probability);
           const best = prediction[0];
 
