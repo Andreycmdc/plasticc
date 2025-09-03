@@ -59,8 +59,27 @@
     const hiddenCanvas = document.getElementById("hiddenCanvas");
     const ctx = hiddenCanvas.getContext("2d");
 
+    // Función para verificar que los archivos del modelo existen
+    async function checkModelFiles() {
+      try {
+        const files = ["model.json", "metadata.json", "weights.bin"];
+        for(const f of files){
+          const res = await fetch(URL + f);
+          if(!res.ok) throw new Error(`${f} no encontrado`);
+        }
+        return true;
+      } catch(err) {
+        console.error("Error de archivos del modelo:", err);
+        result.innerText = "Error: faltan archivos del modelo.";
+        return false;
+      }
+    }
+
     // Cargar el modelo
     async function loadModel() {
+      const filesExist = await checkModelFiles();
+      if(!filesExist) return;
+
       try {
         result.innerText = "Cargando modelo...";
         model = await tmImage.load(URL + "model.json", URL + "metadata.json");
