@@ -1,65 +1,188 @@
-<div>Teachable Machine Image Model</div>
-<button type="button" onclick="init()">Abrir Cámara</button>
-<button type="button" onclick="switchCamera()">Cambiar Cámara</button>
-<video id="webcam" autoplay playsinline width="300" height="300"></video>
-<div id="label-container"></div>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Detector con Teachable Machine</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+      color: white;
+      text-align: center;
+    }
 
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
-<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest"></script>
-<script>
+    h1 {
+      margin: 20px 0;
+      font-size: 28px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    #webcam-container {
+      position: relative;
+      display: inline-block;
+      margin: 20px auto;
+    }
+
+    video {
+      border-radius: 10px;
+      width: 320px;
+      height: 320px;
+      object-fit: cover;
+    }
+
+    /* Efecto de escaneo */
+    .scanner {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: 2px solid #00ff88;
+      box-sizing: border-box;
+      pointer-events: none;
+      border-radius: 10px;
+    }
+
+    .scanner::after {
+      content: "";
+      position: absolute;
+      top: -100%;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(0deg, transparent, rgba(0, 255, 136, 0.4), transparent);
+      animation: scan 3s linear infinite;
+    }
+
+    @keyframes scan {
+      0% { top: -100%; }
+      100% { top: 100%; }
+    }
+
+    button {
+      background: #00ff88;
+      color: #000;
+      border: none;
+      padding: 12px 20px;
+      margin: 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: bold;
+      transition: all 0.3s ease;
+    }
+
+    button:hover {
+      background: #00cc66;
+    }
+
+    #label-container {
+      margin-top: 20px;
+      width: 320px;
+      margin-left: auto;
+      margin-right: auto;
+      text-align: left;
+    }
+
+    .prediction {
+      margin: 8px 0;
+    }
+
+    .bar {
+      height: 12px;
+      background: #00ff88;
+      border-radius: 6px;
+      width: 0%;
+      transition: width 0.4s ease;
+    }
+
+    .bar-container {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      overflow: hidden;
+      height: 12px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Clasificador de Imágenes</h1>
+  <button onclick="init()">Abrir Cámara</button>
+  <button onclick="switchCamera()">Cambiar Cámara</button>
+
+  <div id="webcam-container">
+    <video id="webcam" autoplay playsinline></video>
+    <div class="scanner"></div>
+  </div>
+
+  <div id="label-container"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest"></script>
+  <script>
     const URL = "./my_model/";
-    let model, labelContainer, maxPredictions;
+    let model, maxPredictions;
     let currentStream = null;
-    let currentFacingMode = "environment"; // inicia con la trasera
+    let currentFacingMode = "environment"; // cámara trasera por defecto
     const video = document.getElementById("webcam");
 
     async function init() {
-        const modelURL = URL + "model.json";
-        const metadataURL = URL + "metadata.json";
-        model = await tmImage.load(modelURL, metadataURL);
-        maxPredictions = model.getTotalClasses();
+      const modelURL = URL + "model.json";
+      const metadataURL = URL + "metadata.json";
+      model = await tmImage.load(modelURL, metadataURL);
+      maxPredictions = model.getTotalClasses();
 
-        labelContainer = document.getElementById("label-container");
-        for (let i = 0; i < maxPredictions; i++) {
-            labelContainer.appendChild(document.createElement("div"));
-        }
+      document.getElementById("label-container").innerHTML = "";
+      for (let i = 0; i < maxPredictions; i++) {
+        const container = document.createElement("div");
+        container.className = "prediction";
+        container.innerHTML = `
+          <span id="label-${i}">Clase</span>
+          <div class="bar-container">
+            <div id="bar-${i}" class="bar"></div>
+          </div>
+        `;
+        document.getElementById("label-container").appendChild(container);
+      }
 
-        startCamera();
+      startCamera();
     }
 
     async function startCamera() {
-        if (currentStream) {
-            currentStream.getTracks().forEach(track => track.stop());
-        }
-        const constraints = {
-            audio: false,
-            video: {
-                facingMode: currentFacingMode
-            }
-        };
-        currentStream = await navigator.mediaDevices.getUserMedia(constraints);
-        video.srcObject = currentStream;
-        predictLoop();
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+      }
+      const constraints = {
+        audio: false,
+        video: { facingMode: currentFacingMode }
+      };
+      currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+      video.srcObject = currentStream;
+      predictLoop();
     }
 
     async function switchCamera() {
-        currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
-        await startCamera();
+      currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
+      await startCamera();
     }
 
     async function predictLoop() {
-        if (!model) return;
-        setInterval(async () => {
-            const prediction = await model.predict(video);
-            for (let i = 0; i < maxPredictions; i++) {
-                const classPrediction =
-                    prediction[i].className + ": " +
-                    prediction[i].probability.toFixed(2);
-                labelContainer.childNodes[i].innerHTML = classPrediction;
-            }
-        }, 500);
+      if (!model) return;
+      setInterval(async () => {
+        const prediction = await model.predict(video);
+        for (let i = 0; i < maxPredictions; i++) {
+          document.getElementById("label-" + i).innerText =
+            prediction[i].className + " - " + (prediction[i].probability * 100).toFixed(1) + "%";
+          document.getElementById("bar-" + i).style.width =
+            (prediction[i].probability * 100).toFixed(1) + "%";
+        }
+      }, 500);
     }
-</script>
+  </script>
+</body>
+</html>
 
 
 
