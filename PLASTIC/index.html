@@ -3,135 +3,66 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Detector 4D - Teachable Machine</title>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.20.0"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8"></script>
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      grid-template-rows: 1fr 1fr;
-      height: 100vh;
-    }
-    .panel {
-      border: 2px solid #333;
-      padding: 10px;
-      box-sizing: border-box;
-      overflow: auto;
-    }
-    #webcam-container {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: #000;
-    }
-    video {
-      width: 100%;
-      max-height: 100%;
-      object-fit: cover;
-    }
-    #label-container div {
-      font-size: 18px;
-      margin: 5px 0;
-    }
-    #logs {
-      font-size: 14px;
-      color: #444;
-    }
-  </style>
+  <title>AI Vision - Teachable Machine</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
 </head>
-<body>
-  <!-- Panel 1: Cámara -->
-  <div class="panel" id="webcam-container"></div>
+<body class="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 min-h-screen flex flex-col items-center justify-center text-white">
+  
+  <h1 class="text-4xl font-bold mb-6">🤖 AI Vision</h1>
+  <p class="mb-6 text-lg opacity-90">Clasificación en vivo con <b>Teachable Machine</b></p>
 
-  <!-- Panel 2: Predicciones -->
-  <div class="panel">
-    <h2>📊 Predicciones</h2>
-    <div id="label-container"></div>
-  </div>
+  <button onclick="init()" class="px-6 py-3 bg-white text-indigo-700 font-semibold rounded-lg shadow-lg hover:bg-gray-200 transition">
+    Iniciar Cámara
+  </button>
 
-  <!-- Panel 3: Info del modelo -->
-  <div class="panel">
-    <h2>📁 Clases</h2>
-    <ul id="class-list"></ul>
-  </div>
+  <div id="webcam-container" class="mt-6"></div>
+  <div id="label-container" class="mt-4 space-y-2 text-lg"></div>
 
-  <!-- Panel 4: Logs -->
-  <div class="panel">
-    <h2>📝 Logs en vivo</h2>
-    <div id="logs"></div>
-  </div>
+  <footer class="mt-12 text-sm opacity-75">
+    🚀 Desplegado en <b>Vercel</b> | Hecho con TensorFlow.js
+  </footer>
 
-  <script>
-    const URL = "./my_model/";
-    let model, webcam, labelContainer, maxPredictions;
-    let logs = document.getElementById("logs");
+<script>
+  const URL = "./my_model/";
+  let model, webcam, labelContainer, maxPredictions;
 
-    async function init() {
-      const modelURL = URL + "model.json";
-      const metadataURL = URL + "metadata.json";
+  async function init() {
+    const modelURL = URL + "model.json";
+    const metadataURL = URL + "metadata.json";
 
-      model = await tmImage.load(modelURL, metadataURL);
-      maxPredictions = model.getTotalClasses();
+    model = await tmImage.load(modelURL, metadataURL);
+    maxPredictions = model.getTotalClasses();
 
-      const flip = true;
-      webcam = new tmImage.Webcam(300, 300, flip);
-      await webcam.setup();
-      await webcam.play();
-      window.requestAnimationFrame(loop);
+    const flip = true;
+    webcam = new tmImage.Webcam(300, 300, flip);
+    await webcam.setup();
+    await webcam.play();
+    window.requestAnimationFrame(loop);
 
-      document.getElementById("webcam-container").appendChild(webcam.canvas);
-
-      labelContainer = document.getElementById("label-container");
-      for (let i = 0; i < maxPredictions; i++) {
-        labelContainer.appendChild(document.createElement("div"));
-      }
-
-      // Mostrar lista de clases
-      const classList = document.getElementById("class-list");
-      model.metadata.labels.forEach(label => {
-        let li = document.createElement("li");
-        li.textContent = label;
-        classList.appendChild(li);
-      });
+    document.getElementById("webcam-container").appendChild(webcam.canvas);
+    labelContainer = document.getElementById("label-container");
+    for (let i = 0; i < maxPredictions; i++) {
+      const label = document.createElement("div");
+      label.classList.add("bg-white", "text-indigo-700", "px-4", "py-2", "rounded-lg", "shadow-md");
+      labelContainer.appendChild(label);
     }
+  }
 
-    async function loop() {
-      webcam.update();
-      await predict();
-      window.requestAnimationFrame(loop);
+  async function loop() {
+    webcam.update();
+    await predict();
+    window.requestAnimationFrame(loop);
+  }
+
+  async function predict() {
+    const prediction = await model.predict(webcam.canvas);
+    for (let i = 0; i < maxPredictions; i++) {
+      labelContainer.childNodes[i].innerHTML =
+        prediction[i].className + ": " + (prediction[i].probability * 100).toFixed(1) + "%";
     }
-
-    async function predict() {
-      const prediction = await model.predict(webcam.canvas);
-      let topClass = "";
-      let topProb = 0;
-
-      for (let i = 0; i < maxPredictions; i++) {
-        const prob = prediction[i].probability.toFixed(2);
-        const label = prediction[i].className;
-        labelContainer.childNodes[i].innerHTML = `${label}: ${prob}`;
-        
-        if (prediction[i].probability > topProb) {
-          topProb = prediction[i].probability;
-          topClass = prediction[i].className;
-        }
-      }
-
-      if (topClass) {
-        let entry = document.createElement("div");
-        entry.textContent = `Detectado: ${topClass} (${(topProb*100).toFixed(1)}%)`;
-        logs.prepend(entry);
-        if (logs.childNodes.length > 20) {
-          logs.removeChild(logs.lastChild);
-        }
-      }
-    }
-
-    init();
-  </script>
+  }
+</script>
 </body>
 </html>
-
