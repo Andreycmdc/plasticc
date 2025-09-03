@@ -1,129 +1,185 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Plastic Scanner Pro - Streaming</title>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
-<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest"></script>
-<style>
-body { font-family:"Segoe UI", Tahoma, sans-serif; background:linear-gradient(135deg,#0f2027,#203a43,#2c5364); color:#fff; text-align:center; margin:0; padding:20px; }
-h1 { font-size:2rem; margin-bottom:10px; }
-#preview { width:320px; height:320px; border:3px solid #0ff; border-radius:12px; margin:20px auto; display:flex; align-items:center; justify-content:center; background: rgba(0,255,255,0.05); box-shadow:0 0 25px rgba(0,255,255,0.3); position:relative; overflow:hidden; }
-#preview video, #preview canvas { width:100%; height:100%; border-radius:12px; }
-.scan-line { position:absolute; width:100%; height:4px; background: rgba(0,255,255,0.8); animation:scan 2s linear infinite; display:none; }
-@keyframes scan {0% { top:0;} 100% {top:100%;} }
-#result { margin-top:20px; font-size:1.4rem; font-weight:bold; color:#0ff; }
-#confidenceBar { width:80%; height:20px; margin:10px auto; background: rgba(255,255,255,0.2); border-radius:10px; overflow:hidden; box-shadow:0 0 10px rgba(0,255,255,0.4); }
-#confidenceFill { height:100%; width:0%; background: linear-gradient(90deg,#0ff,#00c3ff); transition: width 0.3s ease; }
-button { background:#0ff; border:none; color:#000; font-size:1rem; padding:10px 18px; margin:10px 5px; border-radius:8px; cursor:pointer; transition:0.3s; }
-button:hover { background:#06c4c4; }
-#history { margin-top:30px; text-align:left; max-width:400px; margin-left:auto; margin-right:auto; }
-.history-item { background: rgba(255,255,255,0.1); border-radius:8px; padding:8px; margin-bottom:8px; display:flex; align-items:center; gap:10px; }
-.history-item canvas { width:50px; height:50px; border-radius:6px; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Detector con Teachable Machine</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+      color: white;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 20px 0;
+      font-size: 28px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    #webcam-container {
+      position: relative;
+      display: inline-block;
+      margin: 20px auto;
+    }
+
+    video {
+      border-radius: 10px;
+      width: 320px;
+      height: 320px;
+      object-fit: cover;
+    }
+
+    /* Efecto de escaneo */
+    .scanner {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: 2px solid #00ff88;
+      box-sizing: border-box;
+      pointer-events: none;
+      border-radius: 10px;
+    }
+
+    .scanner::after {
+      content: "";
+      position: absolute;
+      top: -100%;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(0deg, transparent, rgba(0, 255, 136, 0.4), transparent);
+      animation: scan 3s linear infinite;
+    }
+
+    @keyframes scan {
+      0% { top: -100%; }
+      100% { top: 100%; }
+    }
+
+    button {
+      background: #00ff88;
+      color: #000;
+      border: none;
+      padding: 12px 20px;
+      margin: 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: bold;
+      transition: all 0.3s ease;
+    }
+
+    button:hover {
+      background: #00cc66;
+    }
+
+    #label-container {
+      margin-top: 20px;
+      width: 320px;
+      margin-left: auto;
+      margin-right: auto;
+      text-align: left;
+    }
+
+    .prediction {
+      margin: 8px 0;
+    }
+
+    .bar {
+      height: 12px;
+      background: #00ff88;
+      border-radius: 6px;
+      width: 0%;
+      transition: width 0.4s ease;
+    }
+
+    .bar-container {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      overflow: hidden;
+      height: 12px;
+    }
+  </style>
 </head>
 <body>
-<h1>Plastic Scanner Pro - Streaming</h1>
-<p>Usa la webcam para identificar el tipo de plástico en tiempo real</p>
+  <h1>Clasificador de Imágenes</h1>
+  <button onclick="init()">Abrir Cámara</button>
+  <button onclick="switchCamera()">Cambiar Cámara</button>
 
-<div id="preview">
-<video id="webcam" autoplay playsinline></video>
-<div class="scan-line" id="scanLine"></div>
-</div>
+  <div id="webcam-container">
+    <video id="webcam" autoplay playsinline></video>
+    <div class="scanner"></div>
+  </div>
 
-<button id="startBtn">▶ Iniciar Webcam</button>
-<button onclick="shareResult()">📤 Compartir</button>
+  <div id="label-container"></div>
 
-<div id="result">Esperando webcam...</div>
-<div id="confidenceBar"><div id="confidenceFill"></div></div>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest"></script>
+  <script>
+    const URL = "./my_model/";
+    let model, maxPredictions;
+    let currentStream = null;
+    let currentFacingMode = "environment"; // cámara trasera por defecto
+    const video = document.getElementById("webcam");
 
-<div id="history">
-<h3>📑 Historial</h3>
-<div id="historyList"></div>
-</div>
+    async function init() {
+      const modelURL = URL + "model.json";
+      const metadataURL = URL + "metadata.json";
+      model = await tmImage.load(modelURL, metadataURL);
+      maxPredictions = model.getTotalClasses();
 
-<canvas id="hiddenCanvas" style="display:none;"></canvas>
+      document.getElementById("label-container").innerHTML = "";
+      for (let i = 0; i < maxPredictions; i++) {
+        const container = document.createElement("div");
+        container.className = "prediction";
+        container.innerHTML = `
+          <span id="label-${i}">Clase</span>
+          <div class="bar-container">
+            <div id="bar-${i}" class="bar"></div>
+          </div>
+        `;
+        document.getElementById("label-container").appendChild(container);
+      }
 
-<script>
-const URL = "./my_model/";
-let model, maxPredictions, webcam, lastResult="";
-const result = document.getElementById("result");
-const confidenceFill = document.getElementById("confidenceFill");
-const historyList = document.getElementById("historyList");
-const scanLine = document.getElementById("scanLine");
-const hiddenCanvas = document.getElementById("hiddenCanvas");
-const ctx = hiddenCanvas.getContext("2d");
+      startCamera();
+    }
 
-// Cargar modelo
-async function loadModel(){
-  try{
-    result.innerText="Cargando modelo...";
-    model = await tmImage.load(URL+"model.json", URL+"metadata.json");
-    maxPredictions = model.getTotalClasses();
-    result.innerText="Modelo cargado. Listo para streaming.";
-  }catch(err){
-    console.error("Error cargando modelo:",err);
-    result.innerText="Error cargando modelo. Verifica rutas y archivos.";
-  }
-}
+    async function startCamera() {
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+      }
+      const constraints = {
+        audio: false,
+        video: { facingMode: currentFacingMode }
+      };
+      currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+      video.srcObject = currentStream;
+      predictLoop();
+    }
 
-// Iniciar webcam
-document.getElementById("startBtn").addEventListener("click", async ()=>{
-  await loadModel();
-  webcam = document.getElementById("webcam");
-  if(navigator.mediaDevices.getUserMedia){
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:"environment" }, audio:false });
-    webcam.srcObject = stream;
-    webcam.addEventListener("loadeddata", predictLoop);
-  }else{
-    alert("Webcam no soportada en este dispositivo.");
-  }
-});
+    async function switchCamera() {
+      currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
+      await startCamera();
+    }
 
-// Loop de predicción
-async function predictLoop(){
-  scanLine.style.display="block";
-  hiddenCanvas.width=webcam.videoWidth;
-  hiddenCanvas.height=webcam.videoHeight;
-  ctx.drawImage(webcam,0,0,hiddenCanvas.width,hiddenCanvas.height);
-
-  try{
-    const prediction = await model.predict(hiddenCanvas);
-    prediction.sort((a,b)=>b.probability-a.probability);
-    const best = prediction[0];
-    lastResult = `${best.className} (${(best.probability*100).toFixed(1)}%)`;
-    result.innerHTML=`🔍 Detectado: <span style="color:#fff">${best.className}</span>`;
-    confidenceFill.style.width=(best.probability*100).toFixed(1)+"%";
-
-    // Guardar thumbnail en historial cada predicción
-    const canvasThumb = document.createElement("canvas");
-    canvasThumb.width=50; canvasThumb.height=50;
-    const ctxThumb = canvasThumb.getContext("2d");
-    ctxThumb.drawImage(webcam,0,0,50,50);
-    const item=document.createElement("div");
-    item.classList.add("history-item");
-    item.appendChild(canvasThumb);
-    const span=document.createElement("span");
-    span.innerText=lastResult;
-    item.appendChild(span);
-    historyList.prepend(item);
-    if(historyList.children.length>10) historyList.removeChild(historyList.lastChild);
-
-  }catch(err){
-    console.error("Error prediciendo:",err);
-    result.innerText="Error al predecir.";
-  }finally{
-    if(navigator.vibrate) navigator.vibrate(100);
-    setTimeout(predictLoop, 500); // cada 0.5s
-  }
-}
-
-function shareResult(){
-  if(navigator.share && lastResult){
-    navigator.share({title:"Plastic Scanner Pro", text:"Resultado: "+lastResult});
-  }else alert("Compartir no soportado en este dispositivo.");
-}
-</script>
+    async function predictLoop() {
+      if (!model) return;
+      setInterval(async () => {
+        const prediction = await model.predict(video);
+        for (let i = 0; i < maxPredictions; i++) {
+          document.getElementById("label-" + i).innerText =
+            prediction[i].className + " - " + (prediction[i].probability * 100).toFixed(1) + "%";
+          document.getElementById("bar-" + i).style.width =
+            (prediction[i].probability * 100).toFixed(1) + "%";
+        }
+      }, 500);
+    }
+  </script>
 </body>
 </html>
