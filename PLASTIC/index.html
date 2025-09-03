@@ -7,7 +7,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest"></script>
   <style>
-    body { font-family: "Segoe UI", Tahoma, sans-serif; background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); color: #fff; text-align:center; margin:0; padding:20px; }
+    body { font-family: "Segoe UI", Tahoma, sans-serif; background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); color:#fff; text-align:center; margin:0; padding:20px; }
     h1 { font-size:2rem; margin-bottom:10px; }
     #preview { width:260px; height:260px; border:3px solid #0ff; border-radius:12px; margin:20px auto; display:flex; align-items:center; justify-content:center; background: rgba(0,255,255,0.05); box-shadow:0 0 25px rgba(0,255,255,0.3); position:relative; overflow:hidden; }
     #preview img { width:100%; height:100%; object-fit:cover; border-radius:12px; }
@@ -51,11 +51,16 @@
     let model, maxPredictions, lastResult = "";
 
     async function loadModel() {
-      const modelURL = URL + "model.json";
-      const metadataURL = URL + "metadata.json";
-      model = await tmImage.load(modelURL, metadataURL);
-      maxPredictions = model.getTotalClasses();
-      document.getElementById("result").innerText = "Modelo cargado. Listo para analizar.";
+      try {
+        const modelURL = URL + "model.json";
+        const metadataURL = URL + "metadata.json";
+        model = await tmImage.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
+        document.getElementById("result").innerText = "Modelo cargado. Listo para analizar.";
+      } catch (err) {
+        console.error("Error cargando modelo:", err);
+        document.getElementById("result").innerText = "Error cargando modelo.";
+      }
     }
     loadModel();
 
@@ -79,18 +84,26 @@
       reader.readAsDataURL(file);
 
       photo.onload = async () => {
-        // Mostrar animación de escaneo
+        if (!model) {
+          alert("Modelo aún no cargado.");
+          return;
+        }
+
         scanLine.style.display = "block";
         result.innerText = "Escaneando...";
 
         // Ajustar canvas
-        hiddenCanvas.width = photo.naturalWidth;
-        hiddenCanvas.height = photo.naturalHeight;
+        const MODEL_SIZE = model.getInputShape()[1]; // tamaño esperado por el modelo
+        hiddenCanvas.width = MODEL_SIZE;
+        hiddenCanvas.height = MODEL_SIZE;
+
+        ctx.clearRect(0, 0, hiddenCanvas.width, hiddenCanvas.height);
         ctx.drawImage(photo, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
 
         try {
           const prediction = await model.predict(hiddenCanvas);
-          prediction.sort((a, b) => b.probability - a.probability);
+
+          prediction.sort((a,b)=>b.probability - a.probability);
           const best = prediction[0];
 
           lastResult = `${best.className} (${(best.probability*100).toFixed(1)}%)`;
@@ -104,24 +117,20 @@
           item.innerHTML = `<img src="${photo.src}"><span>${lastResult}</span>`;
           historyList.prepend(item);
 
-          // Efectos
-          scanLine.style.display = "none";
-          if (navigator.vibrate) navigator.vibrate(300);
-          new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg").play();
-        } catch (err) {
+        } catch(err) {
+          console.error("Error prediciendo:", err);
           result.innerText = "Error al predecir. Intenta otra vez.";
+        } finally {
           scanLine.style.display = "none";
-          console.error(err);
+          if(navigator.vibrate) navigator.vibrate(300);
+          new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg").play();
         }
       };
     });
 
     function shareResult() {
-      if (navigator.share && lastResult) {
-        navigator.share({
-          title: "Plastic Scanner Pro",
-          text: "Resultado del análisis: " + lastResult
-        });
+      if(navigator.share && lastResult){
+        navigator.share({ title:"Plastic Scanner Pro", text:"Resultado del análisis: " + lastResult });
       } else {
         alert("Compartir no soportado en este dispositivo.");
       }
@@ -129,5 +138,3 @@
   </script>
 </body>
 </html>
-
-
